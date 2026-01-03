@@ -1,0 +1,6 @@
+## ignore out bin
+./out
+chirpy
+
+## ignore env
+.env
