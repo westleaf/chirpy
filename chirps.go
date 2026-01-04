@@ -13,7 +13,7 @@ import (
 
 type ChirpResponse struct {
 	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"crated_at"`
+	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Body      string    `json:"body"`
 	UserId    uuid.UUID `json:"user_id"`
@@ -61,6 +61,10 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 		Body:   cleaned,
 		UserID: params.UserId,
 	})
+	if err != nil {
+		respondWithError(w, 500, "could not create chirp")
+		return
+	}
 
 	respondWithJSON(w, 201, ChirpResponse{
 		ID:        chirp.ID,
@@ -69,6 +73,28 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 		Body:      chirp.Body,
 		UserId:    chirp.UserID,
 	})
+}
+
+func (cfg *apiConfig) getAllChirpsHandler(w http.ResponseWriter, r *http.Request) {
+	chirps, err := cfg.db.GetChirps(r.Context())
+	if err != nil {
+		respondWithError(w, 500, "could not get chirps")
+		return
+	}
+
+	responses := make([]ChirpResponse, 0, len(chirps))
+
+	for _, chirp := range chirps {
+		responses = append(responses, ChirpResponse{
+			ID:        chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body:      chirp.Body,
+			UserId:    chirp.UserID,
+		})
+	}
+
+	respondWithJSON(w, 200, responses)
 }
 
 func CensorChirp(s string) string {
