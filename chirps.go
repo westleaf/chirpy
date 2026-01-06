@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/westleaf/chirpy/internal/auth"
 	"github.com/westleaf/chirpy/internal/database"
 )
 
@@ -21,8 +22,19 @@ type ChirpResponse struct {
 
 func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Body   string    `json:"body"`
-		UserId uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
+	}
+
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, 401, "unauthorized")
+		return
+	}
+
+	userId, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, 401, "unauthorized")
+		return
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -34,7 +46,7 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 	}()
 
 	params := parameters{}
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		log.Printf("error decoding parameters: %s", err)
 		return
@@ -45,7 +57,7 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if params.UserId == uuid.Nil {
+	if userId == uuid.Nil {
 		respondWithError(w, 400, "user_id can not be empty")
 		return
 	}
@@ -59,7 +71,7 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body:   cleaned,
-		UserID: params.UserId,
+		UserID: userId,
 	})
 	if err != nil {
 		respondWithError(w, 500, "could not create chirp")
@@ -95,6 +107,26 @@ func (cfg *apiConfig) getAllChirpsHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	respondWithJSON(w, 200, responses)
+}
+
+func (cfg *apiConfig) getChirpHandler(w http.ResponseWriter, r *http.Request) {
+	chirpUuid, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		respondWithError(w, 500, "could not parse chirp id")
+	}
+
+	chirp, err := cfg.db.GetChirp(r.Context(), chirpUuid)
+	if err != nil {
+		respondWithError(w, 404, "could not find chirp")
+	}
+
+	respondWithJSON(w, 200, ChirpResponse{
+		ID:        chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		Body:      chirp.Body,
+		UserId:    chirp.UserID,
+	})
 }
 
 func CensorChirp(s string) string {

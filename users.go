@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/westleaf/chirpy/internal/auth"
 	"github.com/westleaf/chirpy/internal/database"
 )
 
@@ -19,7 +20,8 @@ type UserResponse struct {
 
 func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Email string `json:"email"`
+		Password string `json:"password"`
+		Email    string `json:"email"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -37,12 +39,25 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if params.Password == "" {
+		respondWithError(w, 403, "password is required")
+		return
+	}
+
 	if params.Email == "" {
 		respondWithError(w, 400, "email is required")
 		return
 	}
 
-	user, err := cfg.db.CreateUser(r.Context(), params.Email)
+	hashed, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, 500, "internal server error")
+	}
+
+	user, err := cfg.db.CreateUser(r.Context(), database.CreateUserParams{
+		Email:          params.Email,
+		HashedPassword: hashed,
+	})
 	if err != nil {
 		log.Printf("%s\n", err)
 		respondWithError(w, 500, "could not create user")
