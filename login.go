@@ -7,18 +7,23 @@ import (
 	"time"
 
 	"github.com/westleaf/chirpy/internal/auth"
+	"github.com/westleaf/chirpy/internal/database"
 )
 
 type userLoginResponse struct {
-	User  UserResponse
+	User         UserResponse
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+type refreshTokenResponse struct {
 	Token string `json:"token"`
 }
 
 func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Password         string `json:"password"`
-		Email            string `json:"email"`
-		ExpiresInSeconds int    `json:"expires_in_seconds,omitempty"`
+		Password string `json:"password"`
+		Email    string `json:"email"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -58,17 +63,27 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expireTime := time.Hour // default
-
-	maxSeconds := int(time.Hour.Seconds())
-
-	if params.ExpiresInSeconds > 0 && params.ExpiresInSeconds < maxSeconds {
-		expireTime = time.Duration(params.ExpiresInSeconds) * time.Second
-	}
+	expireTime := time.Hour
 
 	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expireTime)
 	if err != nil {
 		respondWithError(w, 401, "invalid token")
+		return
+	}
+
+	rfToken, err := auth.MakeRefreshToken()
+	if err != nil {
+		respondWithError(w, 401, "could not create token")
+		return
+	}
+
+	refreshToken, err := cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token:     rfToken,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(60 * 24 * time.Hour),
+	})
+	if err != nil {
+		respondWithError(w, 401, "could not create token")
 		return
 	}
 
@@ -79,6 +94,31 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt: user.UpdatedAt,
 			Email:     user.Email,
 		},
-		Token: token,
+		Token:        token,
+		RefreshToken: refreshToken.Token,
+	})
+}
+
+func (cfg *apiConfig) refreshTokenHandler(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, 401, "invalid token")
+		return
+	}
+
+	user, err := cfg.db.GetUserFromRefreshToken(r.Context(), token)
+	if err != nil {
+		respondWithError(w, 401, "invalid token")
+		return
+	}
+
+	jwt, err := auth.MakeJWT(user.ID, cfg.jwtSecret, time.Hour)
+	if err != nil {
+		respondWithError(w, 401, "could not make token")
+		return
+	}
+
+	respondWithJSON(w, 200, refreshTokenResponse{
+		Token: jwt,
 	})
 }

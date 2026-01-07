@@ -52,6 +52,7 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) 
 	hashed, err := auth.HashPassword(params.Password)
 	if err != nil {
 		respondWithError(w, 500, "internal server error")
+		return
 	}
 
 	user, err := cfg.db.CreateUser(r.Context(), database.CreateUserParams{

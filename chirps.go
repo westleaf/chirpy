@@ -113,11 +113,13 @@ func (cfg *apiConfig) getChirpHandler(w http.ResponseWriter, r *http.Request) {
 	chirpUuid, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		respondWithError(w, 500, "could not parse chirp id")
+		return
 	}
 
 	chirp, err := cfg.db.GetChirp(r.Context(), chirpUuid)
 	if err != nil {
 		respondWithError(w, 404, "could not find chirp")
+		return
 	}
 
 	respondWithJSON(w, 200, ChirpResponse{
