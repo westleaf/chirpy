@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -85,8 +84,6 @@ func MakeRefreshToken() (string, error) {
 	}
 
 	randString := hex.EncodeToString(rdat)
-
-	log.Printf("%s", randString)
 
 	return randString, nil
 }

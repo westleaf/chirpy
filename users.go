@@ -76,3 +76,65 @@ func NewUserResponse(u database.User) UserResponse {
 		Email:     u.Email,
 	}
 }
+
+func (cfg *apiConfig) updateUserEmailPassword(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, 401, "no token found")
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, 401, "invalid token")
+		return
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	defer func() {
+		err := r.Body.Close()
+		if err != nil {
+			log.Printf("error closing request body: %s", err)
+		}
+	}()
+
+	params := parameters{}
+	err = decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, 400, "incorrect request body")
+		return
+	}
+
+	if params.Email == "" || params.Password == "" {
+		respondWithError(w, 401, "missing paramater in body")
+		return
+	}
+
+	hashed, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, 400, "could not hash password")
+		return
+	}
+
+	user, err := cfg.db.UpdateUser(r.Context(), database.UpdateUserParams{
+		ID:             userID,
+		Email:          params.Email,
+		HashedPassword: hashed,
+	})
+	if err != nil {
+		respondWithError(w, 500, "error changing password or email")
+		return
+	}
+
+	respondWithJSON(w, 200, UserResponse{
+		ID:        user.ID,
+		Email:     user.Email,
+		UpdatedAt: user.UpdatedAt,
+		CreatedAt: user.CreatedAt,
+	})
+}

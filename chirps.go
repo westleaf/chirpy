@@ -131,6 +131,46 @@ func (cfg *apiConfig) getChirpHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (cfg *apiConfig) deleteChirpHandler(w http.ResponseWriter, r *http.Request) {
+
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, 401, "no token provided")
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, 401, "could not validate token")
+		return
+	}
+
+	chirpUuid, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		respondWithError(w, 500, "could not parse chirp id")
+		return
+	}
+
+	chirp, err := cfg.db.GetChirp(r.Context(), chirpUuid)
+	if err != nil {
+		respondWithError(w, 404, "could not find chirp")
+		return
+	}
+
+	if chirp.UserID != userID {
+		respondWithError(w, 403, "unauthorized")
+		return
+	}
+
+	err = cfg.db.DeleteChirp(r.Context(), chirp.ID)
+	if err != nil {
+		respondWithError(w, 500, "error while deleting chirp")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func CensorChirp(s string) string {
 	banned := map[string]bool{
 		"kerfuffle": true,
