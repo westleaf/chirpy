@@ -17,6 +17,7 @@ type apiConfig struct {
 	db             *database.Queries
 	platform       string
 	jwtSecret      string
+	polkaKey       string
 }
 
 func main() {
@@ -33,6 +34,11 @@ func main() {
 	jwtSecret := os.Getenv("JWTSECRET")
 	if jwtSecret == "" {
 		log.Fatal("jwt secret must be set")
+	}
+
+	polkaKey := os.Getenv("POLKA_KEY")
+	if polkaKey == "" {
+		log.Fatal("POLKA_KEY must be set")
 	}
 
 	dbURL := os.Getenv("DB_URL")
@@ -52,6 +58,7 @@ func main() {
 		db:             dbQueries,
 		platform:       platform,
 		jwtSecret:      jwtSecret,
+		polkaKey:       polkaKey,
 	}
 
 	filepathRoot := "."
@@ -73,6 +80,8 @@ func main() {
 	mux.HandleFunc("POST /api/login", apiCfg.loginHandler)
 	mux.HandleFunc("POST /api/refresh", apiCfg.refreshTokenHandler)
 	mux.HandleFunc("POST /api/revoke", apiCfg.revokeTokenHandler)
+
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.upgradeUserToRed)
 
 	server := http.Server{
 		Handler: mux,

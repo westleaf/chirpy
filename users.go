@@ -12,10 +12,11 @@ import (
 )
 
 type UserResponse struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
+	ID          uuid.UUID `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Email       string    `json:"email"`
+	IsChirpyRed bool      `json:"is_chirpy_red"`
 }
 
 func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -70,10 +71,11 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) 
 
 func NewUserResponse(u database.User) UserResponse {
 	return UserResponse{
-		ID:        u.ID,
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
-		Email:     u.Email,
+		ID:          u.ID,
+		CreatedAt:   u.CreatedAt,
+		UpdatedAt:   u.UpdatedAt,
+		Email:       u.Email,
+		IsChirpyRed: u.IsChirpyRed,
 	}
 }
 
@@ -131,10 +133,5 @@ func (cfg *apiConfig) updateUserEmailPassword(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	respondWithJSON(w, 200, UserResponse{
-		ID:        user.ID,
-		Email:     user.Email,
-		UpdatedAt: user.UpdatedAt,
-		CreatedAt: user.CreatedAt,
-	})
+	respondWithJSON(w, 200, NewUserResponse(user))
 }

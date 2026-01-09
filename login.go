@@ -6,14 +6,17 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/westleaf/chirpy/internal/auth"
 	"github.com/westleaf/chirpy/internal/database"
 )
 
 type userLoginResponse struct {
-	User         UserResponse
-	Token        string `json:"token"`
-	RefreshToken string `json:"refresh_token"`
+	ID           uuid.UUID `json:"id"`
+	Email        string    `json:"email"`
+	IsChirpyRed  bool      `json:"is_chirpy_red"`
+	Token        string    `json:"token"`
+	RefreshToken string    `json:"refresh_token"`
 }
 
 type refreshTokenResponse struct {
@@ -88,12 +91,9 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, 200, userLoginResponse{
-		User: UserResponse{
-			ID:        user.ID,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-			Email:     user.Email,
-		},
+		ID:           user.ID,
+		Email:        user.Email,
+		IsChirpyRed:  user.IsChirpyRed,
 		Token:        token,
 		RefreshToken: refreshToken.Token,
 	})

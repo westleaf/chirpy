@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -88,6 +89,9 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (cfg *apiConfig) getAllChirpsHandler(w http.ResponseWriter, r *http.Request) {
+	authorID := r.URL.Query().Get("author_id")
+	shouldSort := r.URL.Query().Get("sort")
+
 	chirps, err := cfg.db.GetChirps(r.Context())
 	if err != nil {
 		respondWithError(w, 500, "could not get chirps")
@@ -97,6 +101,10 @@ func (cfg *apiConfig) getAllChirpsHandler(w http.ResponseWriter, r *http.Request
 	responses := make([]ChirpResponse, 0, len(chirps))
 
 	for _, chirp := range chirps {
+		if authorID != "" && chirp.UserID.String() != authorID {
+			continue
+		}
+
 		responses = append(responses, ChirpResponse{
 			ID:        chirp.ID,
 			CreatedAt: chirp.CreatedAt,
@@ -104,6 +112,10 @@ func (cfg *apiConfig) getAllChirpsHandler(w http.ResponseWriter, r *http.Request
 			Body:      chirp.Body,
 			UserId:    chirp.UserID,
 		})
+	}
+
+	if shouldSort == "desc" {
+		sort.Slice(responses, func(i, j int) bool { return responses[i].CreatedAt.After(responses[j].CreatedAt) })
 	}
 
 	respondWithJSON(w, 200, responses)
